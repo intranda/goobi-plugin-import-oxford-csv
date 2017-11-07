@@ -14,6 +14,7 @@ import java.util.List;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.goobi.beans.Processproperty;
 import org.goobi.production.enums.ImportReturnValue;
@@ -200,7 +201,7 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 //						// create new import object as the item is a new one
 //						item = csv.get("item");
 //						Record rec = new Record();
-//						rec.setData(item);
+//						rec.setObject(csv.get("item"));
 //						rec.setId(filename);
 //						records.add(rec);
 //					}
@@ -209,9 +210,6 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 //			} catch (IOException e) {
 //				logger.error("Error while reading the CSV file", e);
 //			}
-			
-			
-			
 			
 			Record rec = new Record();
 			rec.setData(filename);
@@ -234,18 +232,13 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
     	for (Record record : records) {	    	
     		String item = "";
     		ImportObject io = null;
+    		File targetFolderImages = null;
     		
     		// run through whole csv file and create one import object per item
 			try {
 				Reader in = new FileReader(new File(csvFolder, record.getId()));
 				Iterable<CSVRecord> rows = CSVFormat.RFC4180.withHeader("item", "box", "author", "title", "image").parse(in);
 				for (CSVRecord csv : rows) {			
-//					HashMap<String, String> map = new HashMap<>();
-//					map.put("item", csv.get("item"));
-//					map.put("box", csv.get("box"));
-//					map.put("author", csv.get("author"));
-//					map.put("title", csv.get("title"));
-//					map.put("image", csv.get("image"));
 				
 					if(!csv.get("item").equals(item)){
 						// add existing import object to list
@@ -257,6 +250,15 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 						item = csv.get("item");
 						
 				    	try {
+				    		
+				    		// generate process title
+				            String processTitle = csv.get("item");
+				            // remove non-ascii characters for the sake of TIFF header limits
+			                String regex = ConfigurationHelper.getInstance().getProcessTitleReplacementRegex();
+			                processTitle = processTitle.replaceAll(regex, "_");
+			                processTitle = processTitle.replaceAll("-", "_");
+			                io.setProcessTitle(processTitle);
+
 				    		// generate a mets file
 				    		Fileformat ff = new MetsMods(prefs);
 				            DigitalDocument digitalDocument = new DigitalDocument();
@@ -276,66 +278,61 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 				            logical.addMetadata(identifier);
 				            
 				            Metadata maintitle = new Metadata(prefs.getMetadataTypeByName("TitleDocMain"));
-				            maintitle.setValue((String) csv.get("item"));
+				            maintitle.setValue((String) csv.get("title"));
 				            logical.addMetadata(maintitle);
-				
+								            
 				            // write mets file into import folder
-				            String fileName = getImportFolder() + File.separator + csv.get("item") + ".xml";
+				            String fileName = getImportFolder() + File.separator + processTitle + ".xml";
 				            ff.write(fileName);
-				            
-				            String processTitle = record.getId() + "_" + csv.get("item");
-				            // remove non-ascii characters for the sake of TIFF header limits
-			                String regex = ConfigurationHelper.getInstance().getProcessTitleReplacementRegex();
-			                String filteredTitle = processTitle.replaceAll(regex, "_");
-			                io.setProcessTitle(filteredTitle);
 				            io.setMetsFilename(fileName);
-				            io.setImportReturnValue(ImportReturnValue.ExportFinished);
 				            
-//				            // Barcode as property
-//				            Processproperty ppBarcode = new Processproperty();
-//				            ppBarcode.setTitel("barcode");
-//				            ppBarcode.setWert((String) map.get("barcode"));
-//				            io.getProcessProperties().add(ppBarcode);
-//				            
-//				            // Series as property
-//				            Processproperty ppSeries = new Processproperty();
-//				            ppSeries.setTitel("series_id");
-//				            ppSeries.setWert((String) map.get("series_id"));
-//				            io.getProcessProperties().add(ppSeries);
-//				            
-//				            // consignment_no as property
-//				            Processproperty ppCons = new Processproperty();
-//				            ppCons.setTitel("consignment_no");
-//				            ppCons.setWert((String) map.get("consignment_no"));
-//				            io.getProcessProperties().add(ppCons);
-//				            
-//				            // unit_no as property
-//				            Processproperty ppUnitNo = new Processproperty();
-//				            ppUnitNo.setTitel("unit_no");
-//				            ppUnitNo.setWert((String) map.get("unit_no"));
-//				            io.getProcessProperties().add(ppUnitNo);
-//				            
-//				            // unit_Item_code as property
-//				            Processproperty ppItemCode = new Processproperty();
-//				            ppItemCode.setTitel("unit_Item_code");
-//				            ppItemCode.setWert((String) map.get("unit_Item_code"));
-//				            io.getProcessProperties().add(ppItemCode);
-//				            
-//				            // description as property
-//				            Processproperty ppDesciption = new Processproperty();
-//				            ppDesciption.setTitel("description");
-//				            ppDesciption.setWert((String) map.get("description"));
-//				            io.getProcessProperties().add(ppDesciption);
+				            // media
+				            targetFolderImages = new File(getImportFolder() + File.separator + processTitle + File.separator + "images" 
+					        		+ File.separator + processTitle + "_media");
+				            
+				            // master
+//				            targetFolderImages = new File(getImportFolder() + File.separator + processTitle + File.separator + "images" 
+//					        		+ File.separator + "master_" + processTitle + "_media");
+							targetFolderImages.mkdirs();
+				            
+				            // Item as property
+				            Processproperty myItem = new Processproperty();
+				            myItem.setTitel("Item");
+				            myItem.setWert(csv.get("item"));
+				            io.getProcessProperties().add(myItem);
+				            
+				            // Box as property
+				            Processproperty myBox = new Processproperty();
+				            myBox.setTitel("Box");
+				            myBox.setWert(csv.get("box"));
+				            io.getProcessProperties().add(myBox);
+				            
+				            // Author as property
+				            Processproperty myAuthor = new Processproperty();
+				            myAuthor.setTitel("Author");
+				            myAuthor.setWert(csv.get("author"));
+				            io.getProcessProperties().add(myAuthor);
+				            
+				            // Title as property
+				            Processproperty myTitle = new Processproperty();
+				            myTitle.setTitel("Title");
+				            myTitle.setWert(csv.get("title"));
+				            io.getProcessProperties().add(myTitle);
 				            
 				        } catch (WriteException | PreferencesException | MetadataTypeNotAllowedException | TypeNotAllowedForParentException e) {
 				        	io.setImportReturnValue(ImportReturnValue.WriteError);
 				        }
-
-						
-						
 					}
 					
-					
+					// finally copy all images into temp folder
+					File imageFile = new File(imagesFolder,csv.get("item") + "/" + csv.get("image"));
+					try{
+						FileUtils.copyFile(imageFile, new File(targetFolderImages, csv.get("image")));
+						log.debug("copied image file from " + imageFile.getAbsolutePath() + " to " + targetFolderImages.getAbsolutePath());
+					} catch (IOException ioe){
+						logger.error("Error while copying image file " + imageFile.getAbsolutePath(), ioe);
+						io.setImportReturnValue(ImportReturnValue.WriteError);
+					}
 				}
 			} catch (IOException e) {
 				logger.error("Error while reading the CSV file", e);
