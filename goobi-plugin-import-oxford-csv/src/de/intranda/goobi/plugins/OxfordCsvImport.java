@@ -189,6 +189,30 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 	public List<Record> generateRecordsFromFilenames(List<String> filenames) {
 		List<Record> records = new ArrayList<Record>();
 		for (String filename : filenames) {
+			
+//			String item = "";
+//			try {
+//				Reader in = new FileReader(new File(csvFolder, filename));
+//				Iterable<CSVRecord> rows = CSVFormat.RFC4180.withHeader("item", "box", "author", "title", "image").parse(in);
+//				for (CSVRecord csv : rows) {	
+//					// create a new record for each new item
+//					if(!csv.get("item").equals(item)){
+//						// create new import object as the item is a new one
+//						item = csv.get("item");
+//						Record rec = new Record();
+//						rec.setData(item);
+//						rec.setId(filename);
+//						records.add(rec);
+//					}
+//					
+//				}
+//			} catch (IOException e) {
+//				logger.error("Error while reading the CSV file", e);
+//			}
+			
+			
+			
+			
 			Record rec = new Record();
 			rec.setData(filename);
 			rec.setId(filename);
@@ -201,13 +225,7 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
     public List<Record> generateRecordsFromFile() {
     	return null;
     }
-    
 
-	
-
-
-    
-    
     @Override
     public List<ImportObject> generateFiles(List<Record> records) {
     	List<ImportObject> answer = new ArrayList<ImportObject>();
@@ -236,7 +254,83 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 						}
 						// create new import object as the item is a new one
 						io = new ImportObject();
+						item = csv.get("item");
 						
+				    	try {
+				    		// generate a mets file
+				    		Fileformat ff = new MetsMods(prefs);
+				            DigitalDocument digitalDocument = new DigitalDocument();
+				            ff.setDigitalDocument(digitalDocument);
+				            DocStructType logicalType = prefs.getDocStrctTypeByName("Monograph");
+				            DocStruct logical = digitalDocument.createDocStruct(logicalType);
+				            digitalDocument.setLogicalDocStruct(logical);
+				            DocStructType physicalType = prefs.getDocStrctTypeByName("BoundBook");
+				            DocStruct physical = digitalDocument.createDocStruct(physicalType);
+				            digitalDocument.setPhysicalDocStruct(physical);
+				            Metadata imagePath = new Metadata(prefs.getMetadataTypeByName("pathimagefiles"));
+				            imagePath.setValue("./images/");
+				            physical.addMetadata(imagePath);
+				
+				            Metadata identifier = new Metadata(prefs.getMetadataTypeByName("CatalogIDDigital"));
+				            identifier.setValue(csv.get("item"));
+				            logical.addMetadata(identifier);
+				            
+				            Metadata maintitle = new Metadata(prefs.getMetadataTypeByName("TitleDocMain"));
+				            maintitle.setValue((String) csv.get("item"));
+				            logical.addMetadata(maintitle);
+				
+				            // write mets file into import folder
+				            String fileName = getImportFolder() + File.separator + csv.get("item") + ".xml";
+				            ff.write(fileName);
+				            
+				            String processTitle = record.getId() + "_" + csv.get("item");
+				            // remove non-ascii characters for the sake of TIFF header limits
+			                String regex = ConfigurationHelper.getInstance().getProcessTitleReplacementRegex();
+			                String filteredTitle = processTitle.replaceAll(regex, "_");
+			                io.setProcessTitle(filteredTitle);
+				            io.setMetsFilename(fileName);
+				            io.setImportReturnValue(ImportReturnValue.ExportFinished);
+				            
+//				            // Barcode as property
+//				            Processproperty ppBarcode = new Processproperty();
+//				            ppBarcode.setTitel("barcode");
+//				            ppBarcode.setWert((String) map.get("barcode"));
+//				            io.getProcessProperties().add(ppBarcode);
+//				            
+//				            // Series as property
+//				            Processproperty ppSeries = new Processproperty();
+//				            ppSeries.setTitel("series_id");
+//				            ppSeries.setWert((String) map.get("series_id"));
+//				            io.getProcessProperties().add(ppSeries);
+//				            
+//				            // consignment_no as property
+//				            Processproperty ppCons = new Processproperty();
+//				            ppCons.setTitel("consignment_no");
+//				            ppCons.setWert((String) map.get("consignment_no"));
+//				            io.getProcessProperties().add(ppCons);
+//				            
+//				            // unit_no as property
+//				            Processproperty ppUnitNo = new Processproperty();
+//				            ppUnitNo.setTitel("unit_no");
+//				            ppUnitNo.setWert((String) map.get("unit_no"));
+//				            io.getProcessProperties().add(ppUnitNo);
+//				            
+//				            // unit_Item_code as property
+//				            Processproperty ppItemCode = new Processproperty();
+//				            ppItemCode.setTitel("unit_Item_code");
+//				            ppItemCode.setWert((String) map.get("unit_Item_code"));
+//				            io.getProcessProperties().add(ppItemCode);
+//				            
+//				            // description as property
+//				            Processproperty ppDesciption = new Processproperty();
+//				            ppDesciption.setTitel("description");
+//				            ppDesciption.setWert((String) map.get("description"));
+//				            io.getProcessProperties().add(ppDesciption);
+				            
+				        } catch (WriteException | PreferencesException | MetadataTypeNotAllowedException | TypeNotAllowedForParentException e) {
+				        	io.setImportReturnValue(ImportReturnValue.WriteError);
+				        }
+
 						
 						
 					}
@@ -252,96 +346,7 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 				answer.add(io);
 			}
     		
-    		
-	    	try {
-//	    		Object tempObject = record.getObject();
-//	            HashMap map = (HashMap) tempObject;
-	    		
-	    		HashMap<String, String> map = new HashMap<>();
-	    		map.put("item", "my item");
-	    		map.put("box", "my box");
-	    		map.put("author", "my author");
-	    		map.put("title", "my title");
-	    		map.put("image", "my image");
-	    		
-	    		
-	    		// generate a mets file
-	    		Fileformat ff = new MetsMods(prefs);
-	            DigitalDocument digitalDocument = new DigitalDocument();
-	            ff.setDigitalDocument(digitalDocument);
-	            DocStructType logicalType = prefs.getDocStrctTypeByName("Monograph");
-	            DocStruct logical = digitalDocument.createDocStruct(logicalType);
-	            digitalDocument.setLogicalDocStruct(logical);
-	            DocStructType physicalType = prefs.getDocStrctTypeByName("BoundBook");
-	            DocStruct physical = digitalDocument.createDocStruct(physicalType);
-	            digitalDocument.setPhysicalDocStruct(physical);
-	            Metadata imagePath = new Metadata(prefs.getMetadataTypeByName("pathimagefiles"));
-	            imagePath.setValue("./images/");
-	            physical.addMetadata(imagePath);
-	
-	            Metadata identifier = new Metadata(prefs.getMetadataTypeByName("CatalogIDDigital"));
-	            identifier.setValue(record.getId());
-	            logical.addMetadata(identifier);
-	            
-	            Metadata maintitle = new Metadata(prefs.getMetadataTypeByName("TitleDocMain"));
-	            maintitle.setValue((String) map.get("description"));
-	            logical.addMetadata(maintitle);
-	
-	            // write mets file into import folder
-	            String fileName = getImportFolder() + File.separator + record.getId() + ".xml";
-	            ff.write(fileName);
-	            
-	            // create importobject for massimport
-	            
-	            String processTitle = record.getId() + "_" + (String) map.get("description");
-	            // remove non-ascii characters for the sake of TIFF header limits
-                String regex = ConfigurationHelper.getInstance().getProcessTitleReplacementRegex();
-                String filteredTitle = processTitle.replaceAll(regex, "_");
-                io.setProcessTitle(filteredTitle);
-	            io.setMetsFilename(fileName);
-	            io.setImportReturnValue(ImportReturnValue.ExportFinished);
-	            
-	            // Barcode as property
-	            Processproperty ppBarcode = new Processproperty();
-	            ppBarcode.setTitel("barcode");
-	            ppBarcode.setWert((String) map.get("barcode"));
-	            io.getProcessProperties().add(ppBarcode);
-	            
-	            // Series as property
-	            Processproperty ppSeries = new Processproperty();
-	            ppSeries.setTitel("series_id");
-	            ppSeries.setWert((String) map.get("series_id"));
-	            io.getProcessProperties().add(ppSeries);
-	            
-	            // consignment_no as property
-	            Processproperty ppCons = new Processproperty();
-	            ppCons.setTitel("consignment_no");
-	            ppCons.setWert((String) map.get("consignment_no"));
-	            io.getProcessProperties().add(ppCons);
-	            
-	            // unit_no as property
-	            Processproperty ppUnitNo = new Processproperty();
-	            ppUnitNo.setTitel("unit_no");
-	            ppUnitNo.setWert((String) map.get("unit_no"));
-	            io.getProcessProperties().add(ppUnitNo);
-	            
-	            // unit_Item_code as property
-	            Processproperty ppItemCode = new Processproperty();
-	            ppItemCode.setTitel("unit_Item_code");
-	            ppItemCode.setWert((String) map.get("unit_Item_code"));
-	            io.getProcessProperties().add(ppItemCode);
-	            
-	            // description as property
-	            Processproperty ppDesciption = new Processproperty();
-	            ppDesciption.setTitel("description");
-	            ppDesciption.setWert((String) map.get("description"));
-	            io.getProcessProperties().add(ppDesciption);
-	            
-	        } catch (WriteException | PreferencesException | MetadataTypeNotAllowedException | TypeNotAllowedForParentException e) {
-	        	io.setImportReturnValue(ImportReturnValue.WriteError);
-	        }
-	    	answer.add(io);
-    	}
+       	}
     	 // end of all selected csv files
         return answer;
     }
