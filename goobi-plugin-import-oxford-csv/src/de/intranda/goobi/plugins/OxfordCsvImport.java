@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import org.apache.commons.csv.CSVFormat;
@@ -209,11 +208,6 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 			} catch (IOException e) {
 				logger.error("Error while reading the CSV file", e);
 			}
-			
-//			Record rec = new Record();
-//			rec.setData(filename);
-//			rec.setId(filename);
-//			records.add(rec);
 		}
 		return records;
 	}
@@ -227,34 +221,26 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
     public List<ImportObject> generateFiles(List<Record> records) {
     	List<ImportObject> answer = new ArrayList<ImportObject>();
 
-		// for each selected csv file
+		// for each generated record (mixture of csv file and item identifier)
     	for (Record record : records) {
     		String csvFileName = record.getId().substring(0,record.getId().indexOf(" : ")); 
     		String itemName = record.getId().substring(record.getId().indexOf(" : ") + 3);
-//    		String item = "";
     		ImportObject io = null;
     		File targetFolderImages = null;
     		
-    		// run through whole csv file and create one import object per item
+    		// run through whole csv file and create one import object for just this item
 			try {
 				Reader in = new FileReader(new File(csvFolder, csvFileName));
-//				Reader in = new FileReader(new File(csvFolder, record.getId()));
 				Iterable<CSVRecord> rows = CSVFormat.RFC4180.withHeader("item", "box", "author", "title", "image").parse(in);
 				for (CSVRecord csv : rows) {			
 				
 					if(csv.get("item").equals(itemName)){
-//					if(!csv.get("item").equals(item)){
-						// add existing import object to list
-//						if (io!=null){
-//							answer.add(io);
-//						}
-						// create new import object as the item is a new one
+
+						// create new import object as this has not been done yet
 						if (io == null){
 							io = new ImportObject();
-	//						item = csv.get("item");
 							
 					    	try {
-					    		
 					    		// generate process title
 					            String processTitle = csv.get("item");
 					            // remove non-ascii characters for the sake of TIFF header limits
@@ -327,6 +313,7 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 					        	io.setImportReturnValue(ImportReturnValue.WriteError);
 					        }
 						}
+						
 				    	// finally copy all images into temp folder
 						File imageFile = new File(imagesFolder,csv.get("item") + "/" + csv.get("image"));
 						FileUtils.copyFile(imageFile, new File(targetFolderImages, csv.get("image")));
@@ -337,13 +324,13 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 			} catch (IOException e) {
 				logger.error("Error while reading the CSV file and copying images", e);
 				io.setImportReturnValue(ImportReturnValue.WriteError);
+				io.setErrorMessage("Error while reading the CSV file and copying images: " + e.getMessage());
 			}
 			
 			// after parsing the csv file add the last import object too
 			if (io!=null){
 				answer.add(io);
-			}
-    		
+			}	
        	}
     	 // end of all selected csv files
         return answer;
