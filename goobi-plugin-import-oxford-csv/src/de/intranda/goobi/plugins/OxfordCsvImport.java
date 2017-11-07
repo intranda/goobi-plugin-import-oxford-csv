@@ -29,6 +29,7 @@ import org.goobi.production.properties.ImportProperty;
 import de.sub.goobi.config.ConfigurationHelper;
 import de.sub.goobi.forms.MassImportForm;
 import de.sub.goobi.helper.exceptions.ImportPluginException;
+import lombok.extern.log4j.Log4j;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
@@ -43,13 +44,16 @@ import ugh.exceptions.WriteException;
 import ugh.fileformats.mets.MetsMods;
 
 @PluginImplementation
+@Log4j
 public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 
     private static final Logger logger = Logger.getLogger(OxfordCsvImport.class);
 
     private static final String NAME = "oxford_import_csv";
     private String data = "";
-    private String importFolder = "/opt/digiverso/goobi/import/oxford/WTS_New_Examples/";
+    private String csvFolder = "/opt/digiverso/goobi/import/oxford/WTS_New_Examples/csvs/";
+    private String imagesFolder = "/opt/digiverso/goobi/import/oxford/WTS_New_Examples/output/";
+    private String importFolder;
     private Path importFile;
     private Prefs prefs;
     private MassImportForm form;
@@ -107,18 +111,6 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
         return new ArrayList<Record>();
     }
 
-	@Override
-	public List<Record> generateRecordsFromFilenames(List<String> filenames) {
-		List<Record> records = new ArrayList<Record>();
-		for (String filename : filenames) {
-			Record rec = new Record();
-			rec.setData(filename);
-			rec.setId(filename);
-			records.add(rec);
-		}
-		return records;
-	}
-
     @Override
     public void setFile(File importFile) {
         this.importFile = importFile.toPath();
@@ -144,10 +136,10 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
     @Override
     public List<String> getAllFilenames() {
     	List<String> fileNames = new ArrayList<>();
-        try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(Paths.get(importFolder,"csvs"))) {
+        try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(Paths.get(csvFolder))) {
             for (Path path : directoryStream) {
                 if (path.toString().endsWith(".csv")){
-                	fileNames.add(path.toString());
+                	fileNames.add(path.getFileName().toString());
                 }
             }
         } catch (IOException ex) {}
@@ -192,55 +184,92 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 		this.form = form;
 	}
 
+	
+	@Override
+	public List<Record> generateRecordsFromFilenames(List<String> filenames) {
+		List<Record> records = new ArrayList<Record>();
+		for (String filename : filenames) {
+			Record rec = new Record();
+			rec.setData(filename);
+			rec.setId(filename);
+			records.add(rec);
+		}
+		return records;
+	}
+	
     @Override
     public List<Record> generateRecordsFromFile() {
-    	List<Record> records = new ArrayList<Record>();
-    	
-    	try {
-			Reader in = new FileReader(importFile.toFile());
-			Iterable<CSVRecord> rows = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(in);
-//			Iterable<CSVRecord> rows = CSVFormat.RFC4180.withHeader("barcode", "series_id", "consignment_no", "unit_no", "unit_Item_code", "description").parse(in);
-			for (CSVRecord csv : rows) {
-				
-				HashMap<String, String> map = new HashMap<>();
-				map.put("barcode", csv.get("barcode"));
-				map.put("series_id", csv.get("series_id"));
-				map.put("consignment_no", csv.get("consignment_no"));
-				map.put("unit_no", csv.get("unit_no"));
-				map.put("unit_Item_code", csv.get("unit_Item_code"));
-				map.put("description", csv.get("description"));
-				
-				Record r = new Record();
-				r.setId(map.get("barcode"));
-				r.setData(map.get("barcode"));
-				r.setObject(map);
-				records.add(r);
-			}
-		} catch (IOException e) {
-			logger.error("Error while reading the CSV file", e);
-		}
-        return records;
+    	return null;
     }
     
-    /* (non-Javadoc)
-     * @see org.goobi.production.plugin.interfaces.IImportPlugin#generateFiles(java.util.List)
-     */
+
+	
+
+
+    
+    
     @Override
     public List<ImportObject> generateFiles(List<Record> records) {
     	List<ImportObject> answer = new ArrayList<ImportObject>();
 
-		// for each row in csv file now
-    	for (Record record : records) {
-	    	ImportObject io = new ImportObject();
+		// for each selected csv file
+    	for (Record record : records) {	    	
+    		String item = "";
+    		ImportObject io = null;
+    		
+    		// run through whole csv file and create one import object per item
+			try {
+				Reader in = new FileReader(new File(csvFolder, record.getId()));
+				Iterable<CSVRecord> rows = CSVFormat.RFC4180.withHeader("item", "box", "author", "title", "image").parse(in);
+				for (CSVRecord csv : rows) {			
+//					HashMap<String, String> map = new HashMap<>();
+//					map.put("item", csv.get("item"));
+//					map.put("box", csv.get("box"));
+//					map.put("author", csv.get("author"));
+//					map.put("title", csv.get("title"));
+//					map.put("image", csv.get("image"));
+				
+					if(!csv.get("item").equals(item)){
+						// add existing import object to list
+						if (io!=null){
+							answer.add(io);
+						}
+						// create new import object as the item is a new one
+						io = new ImportObject();
+						
+						
+						
+					}
+					
+					
+				}
+			} catch (IOException e) {
+				logger.error("Error while reading the CSV file", e);
+			}
+			
+			// after parsing the csv file add the last import object too
+			if (io!=null){
+				answer.add(io);
+			}
+    		
+    		
 	    	try {
-	    		Object tempObject = record.getObject();
-	            HashMap map = (HashMap) tempObject;
-	            
+//	    		Object tempObject = record.getObject();
+//	            HashMap map = (HashMap) tempObject;
+	    		
+	    		HashMap<String, String> map = new HashMap<>();
+	    		map.put("item", "my item");
+	    		map.put("box", "my box");
+	    		map.put("author", "my author");
+	    		map.put("title", "my title");
+	    		map.put("image", "my image");
+	    		
+	    		
 	    		// generate a mets file
 	    		Fileformat ff = new MetsMods(prefs);
 	            DigitalDocument digitalDocument = new DigitalDocument();
 	            ff.setDigitalDocument(digitalDocument);
-	            DocStructType logicalType = prefs.getDocStrctTypeByName("Record");
+	            DocStructType logicalType = prefs.getDocStrctTypeByName("Monograph");
 	            DocStruct logical = digitalDocument.createDocStruct(logicalType);
 	            digitalDocument.setLogicalDocStruct(logical);
 	            DocStructType physicalType = prefs.getDocStrctTypeByName("BoundBook");
@@ -313,7 +342,7 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 	        }
 	    	answer.add(io);
     	}
-    	 // end of all csv rows
+    	 // end of all selected csv files
         return answer;
     }
     
