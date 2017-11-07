@@ -191,30 +191,29 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
 		List<Record> records = new ArrayList<Record>();
 		for (String filename : filenames) {
 			
-//			String item = "";
-//			try {
-//				Reader in = new FileReader(new File(csvFolder, filename));
-//				Iterable<CSVRecord> rows = CSVFormat.RFC4180.withHeader("item", "box", "author", "title", "image").parse(in);
-//				for (CSVRecord csv : rows) {	
-//					// create a new record for each new item
-//					if(!csv.get("item").equals(item)){
-//						// create new import object as the item is a new one
-//						item = csv.get("item");
-//						Record rec = new Record();
-//						rec.setObject(csv.get("item"));
-//						rec.setId(filename);
-//						records.add(rec);
-//					}
-//					
-//				}
-//			} catch (IOException e) {
-//				logger.error("Error while reading the CSV file", e);
-//			}
+			String item = "";
+			try {
+				Reader in = new FileReader(new File(csvFolder, filename));
+				Iterable<CSVRecord> rows = CSVFormat.RFC4180.withHeader("item", "box", "author", "title", "image").parse(in);
+				for (CSVRecord csv : rows) {	
+					// create a new record for each new item
+					if(!csv.get("item").equals(item)){
+						// create new import object as the item is a new one
+						item = csv.get("item");
+						Record rec = new Record();
+						rec.setId(filename + " : " + item);
+						records.add(rec);
+					}
+					
+				}
+			} catch (IOException e) {
+				logger.error("Error while reading the CSV file", e);
+			}
 			
-			Record rec = new Record();
-			rec.setData(filename);
-			rec.setId(filename);
-			records.add(rec);
+//			Record rec = new Record();
+//			rec.setData(filename);
+//			rec.setId(filename);
+//			records.add(rec);
 		}
 		return records;
 	}
@@ -229,113 +228,115 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
     	List<ImportObject> answer = new ArrayList<ImportObject>();
 
 		// for each selected csv file
-    	for (Record record : records) {	    	
-    		String item = "";
+    	for (Record record : records) {
+    		String csvFileName = record.getId().substring(0,record.getId().indexOf(" : ")); 
+    		String itemName = record.getId().substring(record.getId().indexOf(" : ") + 3);
+//    		String item = "";
     		ImportObject io = null;
     		File targetFolderImages = null;
     		
     		// run through whole csv file and create one import object per item
 			try {
-				Reader in = new FileReader(new File(csvFolder, record.getId()));
+				Reader in = new FileReader(new File(csvFolder, csvFileName));
+//				Reader in = new FileReader(new File(csvFolder, record.getId()));
 				Iterable<CSVRecord> rows = CSVFormat.RFC4180.withHeader("item", "box", "author", "title", "image").parse(in);
 				for (CSVRecord csv : rows) {			
 				
-					if(!csv.get("item").equals(item)){
+					if(csv.get("item").equals(itemName)){
+//					if(!csv.get("item").equals(item)){
 						// add existing import object to list
-						if (io!=null){
-							answer.add(io);
-						}
+//						if (io!=null){
+//							answer.add(io);
+//						}
 						// create new import object as the item is a new one
-						io = new ImportObject();
-						item = csv.get("item");
-						
-				    	try {
-				    		
-				    		// generate process title
-				            String processTitle = csv.get("item");
-				            // remove non-ascii characters for the sake of TIFF header limits
-			                String regex = ConfigurationHelper.getInstance().getProcessTitleReplacementRegex();
-			                processTitle = processTitle.replaceAll(regex, "_");
-			                processTitle = processTitle.replaceAll("-", "_");
-			                io.setProcessTitle(processTitle);
-
-				    		// generate a mets file
-				    		Fileformat ff = new MetsMods(prefs);
-				            DigitalDocument digitalDocument = new DigitalDocument();
-				            ff.setDigitalDocument(digitalDocument);
-				            DocStructType logicalType = prefs.getDocStrctTypeByName("Monograph");
-				            DocStruct logical = digitalDocument.createDocStruct(logicalType);
-				            digitalDocument.setLogicalDocStruct(logical);
-				            DocStructType physicalType = prefs.getDocStrctTypeByName("BoundBook");
-				            DocStruct physical = digitalDocument.createDocStruct(physicalType);
-				            digitalDocument.setPhysicalDocStruct(physical);
-				            Metadata imagePath = new Metadata(prefs.getMetadataTypeByName("pathimagefiles"));
-				            imagePath.setValue("./images/");
-				            physical.addMetadata(imagePath);
-				
-				            Metadata identifier = new Metadata(prefs.getMetadataTypeByName("CatalogIDDigital"));
-				            identifier.setValue(csv.get("item"));
-				            logical.addMetadata(identifier);
-				            
-				            Metadata maintitle = new Metadata(prefs.getMetadataTypeByName("TitleDocMain"));
-				            maintitle.setValue((String) csv.get("title"));
-				            logical.addMetadata(maintitle);
-								            
-				            // write mets file into import folder
-				            String fileName = getImportFolder() + File.separator + processTitle + ".xml";
-				            ff.write(fileName);
-				            io.setMetsFilename(fileName);
-				            
-				            // media
-				            targetFolderImages = new File(getImportFolder() + File.separator + processTitle + File.separator + "images" 
-					        		+ File.separator + processTitle + "_media");
-				            
-				            // master
-//				            targetFolderImages = new File(getImportFolder() + File.separator + processTitle + File.separator + "images" 
-//					        		+ File.separator + "master_" + processTitle + "_media");
-							targetFolderImages.mkdirs();
-				            
-				            // Item as property
-				            Processproperty myItem = new Processproperty();
-				            myItem.setTitel("Item");
-				            myItem.setWert(csv.get("item"));
-				            io.getProcessProperties().add(myItem);
-				            
-				            // Box as property
-				            Processproperty myBox = new Processproperty();
-				            myBox.setTitel("Box");
-				            myBox.setWert(csv.get("box"));
-				            io.getProcessProperties().add(myBox);
-				            
-				            // Author as property
-				            Processproperty myAuthor = new Processproperty();
-				            myAuthor.setTitel("Author");
-				            myAuthor.setWert(csv.get("author"));
-				            io.getProcessProperties().add(myAuthor);
-				            
-				            // Title as property
-				            Processproperty myTitle = new Processproperty();
-				            myTitle.setTitel("Title");
-				            myTitle.setWert(csv.get("title"));
-				            io.getProcessProperties().add(myTitle);
-				            
-				        } catch (WriteException | PreferencesException | MetadataTypeNotAllowedException | TypeNotAllowedForParentException e) {
-				        	io.setImportReturnValue(ImportReturnValue.WriteError);
-				        }
-					}
+						if (io == null){
+							io = new ImportObject();
+	//						item = csv.get("item");
+							
+					    	try {
+					    		
+					    		// generate process title
+					            String processTitle = csv.get("item");
+					            // remove non-ascii characters for the sake of TIFF header limits
+				                String regex = ConfigurationHelper.getInstance().getProcessTitleReplacementRegex();
+				                processTitle = processTitle.replaceAll(regex, "_");
+				                processTitle = processTitle.replaceAll("-", "_");
+				                io.setProcessTitle(processTitle);
+	
+					    		// generate a mets file
+					    		Fileformat ff = new MetsMods(prefs);
+					            DigitalDocument digitalDocument = new DigitalDocument();
+					            ff.setDigitalDocument(digitalDocument);
+					            DocStructType logicalType = prefs.getDocStrctTypeByName("Monograph");
+					            DocStruct logical = digitalDocument.createDocStruct(logicalType);
+					            digitalDocument.setLogicalDocStruct(logical);
+					            DocStructType physicalType = prefs.getDocStrctTypeByName("BoundBook");
+					            DocStruct physical = digitalDocument.createDocStruct(physicalType);
+					            digitalDocument.setPhysicalDocStruct(physical);
+					            Metadata imagePath = new Metadata(prefs.getMetadataTypeByName("pathimagefiles"));
+					            imagePath.setValue("./images/");
+					            physical.addMetadata(imagePath);
 					
-					// finally copy all images into temp folder
-					File imageFile = new File(imagesFolder,csv.get("item") + "/" + csv.get("image"));
-					try{
+					            Metadata identifier = new Metadata(prefs.getMetadataTypeByName("CatalogIDDigital"));
+					            identifier.setValue(csv.get("item"));
+					            logical.addMetadata(identifier);
+					            
+					            Metadata maintitle = new Metadata(prefs.getMetadataTypeByName("TitleDocMain"));
+					            maintitle.setValue((String) csv.get("title"));
+					            logical.addMetadata(maintitle);
+									            
+					            // write mets file into import folder
+					            String fileName = getImportFolder() + File.separator + processTitle + ".xml";
+					            ff.write(fileName);
+					            io.setMetsFilename(fileName);
+					            
+					            // media
+					            targetFolderImages = new File(getImportFolder() + File.separator + processTitle + File.separator + "images" 
+						        		+ File.separator + processTitle + "_media");
+					            
+					            // master
+	//				            targetFolderImages = new File(getImportFolder() + File.separator + processTitle + File.separator + "images" 
+	//					        		+ File.separator + "master_" + processTitle + "_media");
+								targetFolderImages.mkdirs();
+					            
+					            // Item as property
+					            Processproperty myItem = new Processproperty();
+					            myItem.setTitel("Item");
+					            myItem.setWert(csv.get("item"));
+					            io.getProcessProperties().add(myItem);
+					            
+					            // Box as property
+					            Processproperty myBox = new Processproperty();
+					            myBox.setTitel("Box");
+					            myBox.setWert(csv.get("box"));
+					            io.getProcessProperties().add(myBox);
+					            
+					            // Author as property
+					            Processproperty myAuthor = new Processproperty();
+					            myAuthor.setTitel("Author");
+					            myAuthor.setWert(csv.get("author"));
+					            io.getProcessProperties().add(myAuthor);
+					            
+					            // Title as property
+					            Processproperty myTitle = new Processproperty();
+					            myTitle.setTitel("Title");
+					            myTitle.setWert(csv.get("title"));
+					            io.getProcessProperties().add(myTitle);
+					            
+					        } catch (WriteException | PreferencesException | MetadataTypeNotAllowedException | TypeNotAllowedForParentException e) {
+					        	io.setImportReturnValue(ImportReturnValue.WriteError);
+					        }
+						}
+				    	// finally copy all images into temp folder
+						File imageFile = new File(imagesFolder,csv.get("item") + "/" + csv.get("image"));
 						FileUtils.copyFile(imageFile, new File(targetFolderImages, csv.get("image")));
 						log.debug("copied image file from " + imageFile.getAbsolutePath() + " to " + targetFolderImages.getAbsolutePath());
-					} catch (IOException ioe){
-						logger.error("Error while copying image file " + imageFile.getAbsolutePath(), ioe);
-						io.setImportReturnValue(ImportReturnValue.WriteError);
 					}
+					
 				}
 			} catch (IOException e) {
-				logger.error("Error while reading the CSV file", e);
+				logger.error("Error while reading the CSV file and copying images", e);
+				io.setImportReturnValue(ImportReturnValue.WriteError);
 			}
 			
 			// after parsing the csv file add the last import object too
