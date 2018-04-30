@@ -1,0 +1,15 @@
+<config_plugin>
+
+	<!-- path for the place where the CSV files are located -->
+	<path_csv_files>/opt/digiverso/goobi/import/oxford/WTS_New_Examples/csvs/</path_csv_files>   
+	
+	<!-- path for the place where the images are loaded from -->
+	<path_image_files>/opt/digiverso/goobi/import/oxford/WTS_New_Examples/output/</path_image_files> 
+	
+	<!-- decide if import should go into 'master' or 'media' folder. -->
+	<target_folder>media</target_folder>
+	
+	<!-- Publication type to generate (has to be configured in the ruleset correctly!) -->
+	<publication_type>MusicSupplies</publication_type>
+	
+</config_plugin>
