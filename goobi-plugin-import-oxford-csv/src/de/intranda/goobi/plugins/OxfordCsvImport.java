@@ -38,6 +38,7 @@ import ugh.dl.DocStruct;
 import ugh.dl.DocStructType;
 import ugh.dl.Fileformat;
 import ugh.dl.Metadata;
+import ugh.dl.Person;
 import ugh.dl.Prefs;
 import ugh.exceptions.MetadataTypeNotAllowedException;
 import ugh.exceptions.PreferencesException;
@@ -232,7 +233,7 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
     @Override
     public List<ImportObject> generateFiles(List<Record> records) {
         List<ImportObject> answer = new ArrayList<ImportObject>();
-
+        
         // for each generated record (mixture of csv file and item identifier)
         for (Record record : records) {
             String csvFileName = record.getId().substring(0, record.getId().indexOf(" : "));
@@ -275,14 +276,30 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
                                 imagePath.setValue("./images/");
                                 physical.addMetadata(imagePath);
 
+                                // add catalogue identifier
                                 Metadata identifier = new Metadata(prefs.getMetadataTypeByName("CatalogIDDigital"));
                                 identifier.setValue(csv.get("item"));
                                 logical.addMetadata(identifier);
 
+                                // add main title
                                 Metadata maintitle = new Metadata(prefs.getMetadataTypeByName("TitleDocMain"));
                                 maintitle.setValue((String) csv.get("title"));
                                 logical.addMetadata(maintitle);
 
+                                // add person as composer
+                                Person composer = new Person(prefs.getMetadataTypeByName("Composer"));
+                                String lastName = csv.get("author");
+                                String firstName = "";
+                                // if last name is not blank and contains whitespace in between 
+                                // then separate into first and last name
+                                if (lastName!=null && lastName.trim().length() > 0 && lastName.trim().contains(" ")) {
+                                    firstName = lastName.substring(0, lastName.lastIndexOf(" "));
+                                    lastName = lastName.substring(firstName.length());
+                                }
+                                composer.setFirstname(firstName);
+                                composer.setLastname(lastName);
+                                logical.addPerson(composer);
+                                
                                 // write mets file into import folder
                                 String fileName = getImportFolder() + File.separator + processTitle + ".xml";
                                 ff.write(fileName);
@@ -291,9 +308,9 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
                                 // check if media or master folder to use
                                 String tfi = getImportFolder() + File.separator + processTitle + File.separator + "images" + File.separator;
                                 if (targetFolder.equals("master")) {
-                                    tfi += "master_";
+                                    tfi += ConfigurationHelper.getInstance().getMasterDirectoryPrefix() + "_";
                                 }
-                                targetFolderImages = new File(tfi + processTitle + "_media");
+                                targetFolderImages = new File(tfi + processTitle + "_" + ConfigurationHelper.getInstance().getMediaDirectorySuffix());
                                 targetFolderImages.mkdirs();
 
                                 // Item as property

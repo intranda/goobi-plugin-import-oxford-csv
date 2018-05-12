@@ -7,7 +7,7 @@
 	<path_image_files>/opt/digiverso/goobi/import/oxford/WTS_New_Examples/output/</path_image_files> 
 	
 	<!-- decide if import should go into 'master' or 'media' folder. -->
-	<target_folder>media</target_folder>
+	<target_folder>master</target_folder>
 	
 	<!-- Publication type to generate (has to be configured in the ruleset correctly!) -->
 	<publication_type>MusicSupplies</publication_type>
