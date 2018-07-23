@@ -292,10 +292,10 @@ public class OxfordCsvImport implements IImportPluginVersion2, IPlugin {
                                 String firstName = "";
                                 // if last name is not blank and contains whitespace in between 
                                 // then separate into first and last name
-                                if (lastName!=null && lastName.trim().length() > 0 && lastName.trim().contains(" ")) {
-                                    firstName = lastName.substring(0, lastName.lastIndexOf(" "));
-                                    lastName = lastName.substring(firstName.length());
-                                }
+//                                if (lastName!=null && lastName.trim().length() > 0 && lastName.trim().contains(" ")) {
+//                                    firstName = lastName.substring(0, lastName.lastIndexOf(" "));
+//                                    lastName = lastName.substring(firstName.length());
+//                                }
                                 composer.setFirstname(firstName);
                                 composer.setLastname(lastName);
                                 logical.addPerson(composer);
